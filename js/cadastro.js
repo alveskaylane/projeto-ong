@@ -9,6 +9,110 @@ const badgePasso = document.querySelector('.badge-info');
 const alerta = document.querySelector('.alert-warning');
 const toast = document.querySelector('.toast');
 
+/* ========== LOCALSTORAGE (persistência sem back-end) ========== */
+
+const CHAVES = {
+  rascunho: 'ong-renovar:cadastro:rascunho',   // objeto { idDoCampo: valor }
+  historico: 'ong-renovar:cadastro:historico', // array de cadastros enviados
+};
+const CAMPOS_SENSIVEIS = ['cpf']; // dado pessoal: nunca vai para o localStorage
+const LIMITE_HISTORICO = 20;
+
+// GET: string -> objeto/array. Se faltar a chave ou o JSON estiver corrompido, usa o padrão
+function lerStorage(chave, padrao) {
+  try {
+    const bruto = localStorage.getItem(chave);
+    return bruto === null ? padrao : JSON.parse(bruto);
+  } catch {
+    return padrao;
+  }
+}
+
+// SET: objeto/array -> string JSON. Falha (cota cheia, modo privado) não derruba a página
+function gravarStorage(chave, valor) {
+  try {
+    localStorage.setItem(chave, JSON.stringify(valor));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removerStorage(chave) {
+  try { localStorage.removeItem(chave); } catch { /* ignora */ }
+}
+
+/* --- Rascunho: salvo enquanto o usuário digita (com debounce de 300 ms) --- */
+let timerRascunho;
+function salvarRascunho() {
+  clearTimeout(timerRascunho);
+  timerRascunho = setTimeout(() => {
+    const rascunho = {};
+    form.querySelectorAll('input').forEach((campo) => {
+      if (campo.value !== '' && !CAMPOS_SENSIVEIS.includes(campo.id)) {
+        rascunho[campo.id] = campo.value;
+      }
+    });
+    if (Object.keys(rascunho).length) gravarStorage(CHAVES.rascunho, rascunho);
+    else removerStorage(CHAVES.rascunho);
+  }, 300);
+}
+
+// Carregamento inicial: lê o rascunho e repovoa o formulário
+function restaurarRascunho() {
+  const rascunho = lerStorage(CHAVES.rascunho, null);
+  if (!rascunho || typeof rascunho !== 'object') return;
+
+  let restaurou = false;
+  Object.entries(rascunho).forEach(([id, valor]) => {
+    const campo = document.getElementById(id);
+    if (!campo || !form.contains(campo) || CAMPOS_SENSIVEIS.includes(id)) return;
+    definirValor(campo, typeof valor === 'string' ? valor : '');
+    if (campo.value !== '') {
+      marcarCampo(campo); // reaplica o estilo válido/inválido
+      restaurou = true;
+    }
+  });
+  if (restaurou) mostrarToast('Rascunho restaurado.');
+}
+
+/* --- Histórico: array de envios, acumulado entre sessões --- */
+function registrarCadastro(dados) {
+  const salvo = lerStorage(CHAVES.historico, []);
+  const lista = Array.isArray(salvo) ? salvo : [];
+
+  lista.push({
+    nome: dados.nome,
+    email: dados.email,
+    cidade: dados.cidade,
+    estado: dados.estado,
+    enviadoEm: new Date().toISOString(),
+  });
+
+  gravarStorage(CHAVES.historico, lista.slice(-LIMITE_HISTORICO));
+  removerStorage(CHAVES.rascunho); // enviado: o rascunho não é mais necessário
+  mostrarUltimoEnvio();
+}
+
+// Reconstrói na interface o aviso com o último cadastro guardado
+function mostrarUltimoEnvio() {
+  const historico = lerStorage(CHAVES.historico, []);
+  if (!Array.isArray(historico) || historico.length === 0) return;
+
+  const ultimo = historico[historico.length - 1];
+  let aviso = document.getElementById('aviso-ultimo-envio');
+  if (!aviso) {
+    aviso = document.createElement('div');
+    aviso.id = 'aviso-ultimo-envio';
+    aviso.className = 'alert alert-success';
+    form.before(aviso);
+  }
+  const quando = new Date(ultimo.enviadoEm).toLocaleString('pt-BR');
+  aviso.textContent =
+    `Último cadastro neste navegador: ${ultimo.nome} (${ultimo.email}) em ${quando}. ` +
+    `Total de envios: ${historico.length}.`; // textContent: seguro contra XSS
+}
+
 /* ========== MÁSCARAS (texto -> texto formatado) ========== */
 
 const mascaras = {
@@ -31,6 +135,32 @@ const mascaras = {
 
   estado: (v) => v.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase(),
 };
+
+/* ========== INTEGRAÇÃO: IMask (biblioteca via CDN) ========== */
+// Se a CDN falhar, as máscaras manuais acima continuam funcionando (fallback)
+
+const opcoesIMask = {
+  cpf: { mask: '000.000.000-00' },
+  telefone: { mask: [{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }] }, // fixo | celular
+  cep: { mask: '00000-000' },
+  estado: { mask: /^[A-Za-z]{0,2}$/, prepare: (v) => v.toUpperCase() },
+};
+
+const instanciasMascara = new Map(); // id do campo -> instância IMask
+
+if (typeof IMask !== 'undefined') {
+  Object.entries(opcoesIMask).forEach(([id, opcoes]) => {
+    const campo = document.getElementById(id);
+    if (campo) instanciasMascara.set(id, IMask(campo, opcoes));
+  });
+}
+
+// Atribuir valor por código precisa passar pela instância; senão a máscara fica desatualizada
+function definirValor(campo, valor) {
+  const mascara = instanciasMascara.get(campo.id);
+  if (mascara) mascara.value = valor;
+  else campo.value = valor;
+}
 
 /* ========== MENSAGENS DE ERRO ========== */
 
@@ -177,8 +307,9 @@ async function buscarCep(campoCep) {
     const preencher = (id, valor) => {
       const campo = document.getElementById(id);
       if (campo && valor) {
-        campo.value = valor;
+        definirValor(campo, valor);
         marcarCampo(campo);
+        salvarRascunho(); // preenchimento programático não dispara "input"
       }
     };
 
@@ -201,7 +332,7 @@ form.addEventListener('input', (e) => {
   const campo = e.target;
   if (!campo.matches('input')) return;
 
-  if (mascaras[campo.id]) {
+  if (!instanciasMascara.has(campo.id) && mascaras[campo.id]) { // fallback sem IMask
     campo.value = mascaras[campo.id](campo.value);
   }
 
@@ -212,6 +343,8 @@ form.addEventListener('input', (e) => {
   if (campo.classList.contains('campo-invalido')) {
     marcarCampo(campo);
   }
+
+  salvarRascunho(); // persiste o valor já mascarado
 });
 
 /* ========== EVENTO 2: focusout (saiu do campo) ========== */
@@ -240,6 +373,7 @@ form.addEventListener('submit', (e) => {
 
   const dados = Object.fromEntries(new FormData(form));
   console.log('Dados do cadastro:', dados); // aqui entraria o fetch(...)
+  registrarCadastro(dados); // grava no localStorage (sem CPF)
 
   // Estado dinâmico após o sucesso
   badgeStatus.textContent = 'Enviado';
@@ -256,8 +390,17 @@ form.addEventListener('submit', (e) => {
 /* ========== EVENTO 4: reset (limpa marcações visuais) ========== */
 
 form.addEventListener('reset', () => {
+  clearTimeout(timerRascunho);
+  removerStorage(CHAVES.rascunho);
+  // o reset nativo roda depois deste evento: sincroniza o estado interno do IMask
+  setTimeout(() => instanciasMascara.forEach((m) => m.updateValue()), 0);
   form.querySelectorAll('input').forEach((campo) => {
     campo.setCustomValidity('');
     limparCampo(campo);
   });
 });
+
+/* ========== CARREGAMENTO INICIAL ========== */
+
+restaurarRascunho();
+mostrarUltimoEnvio();
