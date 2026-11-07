@@ -1,0 +1,95 @@
+/* ==========================================================================
+   tema-escuro.css — modo escuro + botão de alternância
+   Carregar DEPOIS de style.css. O tema é controlado pelo atributo
+   data-tema="claro|escuro" no <html>, definido por js/tema.js.
+   ========================================================================== */
+
+/* ---------- Botão de alternância (todas as páginas) ---------- */
+.tema-toggle {
+  position: fixed;
+  bottom: 24px;
+  left: 24px; /* o toast fica à direita */
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: 44px; /* área de toque mínima */
+  margin: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-primary);
+  background-color: var(--color-white);
+  border: 2px solid var(--color-primary);
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.tema-toggle:hover {
+  color: var(--color-white);
+  background-color: var(--color-primary-hover);
+}
+
+.tema-toggle:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Modo escuro ---------- */
+:root[data-tema="escuro"] {
+  color-scheme: dark; /* controles nativos, barras de rolagem e seletor de data */
+}
+
+:root[data-tema="escuro"] body {
+  background-color: #0F172A;
+  color: #E2E8F0;
+}
+
+:root[data-tema="escuro"] section,
+:root[data-tema="escuro"] fieldset,
+:root[data-tema="escuro"] .modal-content {
+  background-color: #1E293B;
+  color: #E2E8F0;
+}
+
+:root[data-tema="escuro"] section p,
+:root[data-tema="escuro"] label,
+:root[data-tema="escuro"] .modal-content p {
+  color: #E2E8F0;
+}
+
+/* o verde da marca é escuro demais sobre fundo escuro */
+:root[data-tema="escuro"] main h1,
+:root[data-tema="escuro"] section h2,
+:root[data-tema="escuro"] legend,
+:root[data-tema="escuro"] .modal-content h3 {
+  color: #6EE7A8;
+}
+
+:root[data-tema="escuro"] a {
+  color: #7DD3FC;
+}
+
+:root[data-tema="escuro"] input {
+  color: #E2E8F0;
+  background-color: #0F172A;
+}
+
+:root[data-tema="escuro"] input::placeholder {
+  color: #94A3B8;
+}
+
+/* alertas: o CSS base usa fundos claros fixos */
+:root[data-tema="escuro"] .alert-warning { background-color: #422006; color: #FDE68A; }
+:root[data-tema="escuro"] .alert-info    { background-color: #082F49; color: #BAE6FD; }
+:root[data-tema="escuro"] .alert-success { background-color: #064E3B; color: #A7F3D0; }
+:root[data-tema="escuro"] .alert-danger  { background-color: #450A0A; color: #FECACA; }
+
+:root[data-tema="escuro"] .tema-toggle {
+  color: #6EE7A8;
+  background-color: #1E293B;
+  border-color: #6EE7A8;
+}
+
+:root[data-tema="escuro"] .tema-toggle:hover {
+  color: #0F172A;
+  background-color: #6EE7A8;
+}

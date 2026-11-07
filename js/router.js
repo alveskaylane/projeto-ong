@@ -238,4 +238,3 @@ window.addEventListener('hashchange', render);
 
 // Renderização inicial (primeiro acesso ou F5)
 render();
-

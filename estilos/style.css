@@ -1,5 +1,7 @@
 @charset "UTF-8";
 
+
+
 :root {
   /* Paleta de Cores */
   --color-primary: #1D6F42;     
@@ -12,7 +14,11 @@
   --color-neutral-dark: #1E293B;  
   --color-neutral-medium: #64748B;
   --color-neutral-light: #F8FAFC; 
-  --color-white: #FFFFFF;        
+  --color-white: #FFFFFF;
+  
+    --danger-text: #B4381C;   /* erro: ~5,9:1 sobre branco */
+  --badge-success: #1F7A6F; /* branco: ~5,4:1 */
+  --badge-secondary: #B8503A; /* branco: ~4,9:1 */
 
   /* Tipografia */
   --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
@@ -480,6 +486,14 @@ footer {
 
   .menu-toggle:checked ~ .hamburger-btn span:nth-child(3) {
     transform: translateY(-9px) rotate(-45deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F172A; --surface: #1E293B; --text: #E2E8F0;
+    --text-muted: #94A3B8; --border: #64748B;
+    --primary: #4ADE80;   /* verde claro para links e títulos */
   }
 }
 
